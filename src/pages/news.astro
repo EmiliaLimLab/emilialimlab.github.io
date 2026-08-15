@@ -1,0 +1,46 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../components/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import PressGrid from "../components/PressGrid.astro";
+
+const items = (await getCollection("press")).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+---
+
+<BaseLayout
+  title="News"
+  description="News coverage and media mentions of the lab."
+>
+  <PageHeader
+    eyebrow="Beyond the bench"
+    title="News"
+    lead="Interviews, features, and mentions of the lab's work in the press."
+  />
+  <div class="container-page py-12">
+    {
+      items.length > 0 ? (
+        <PressGrid items={items} />
+      ) : (
+        <div class="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center">
+          <svg class="h-10 w-10 text-primary-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <circle cx="8.5" cy="10" r="1.5" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="m4 17 4.5-4.5 3 3L15 12l5 5" />
+          </svg>
+          <p class="mt-4 font-serif text-lg text-slate-900">Coverage coming soon</p>
+          <p class="mt-1 text-sm text-slate-600">
+            We're putting together a collection of media mentions and press coverage.
+          </p>
+          <a
+            href="/people"
+            class="mt-5 text-sm font-medium text-primary-700 hover:text-accent-600"
+          >
+            Meet the team &rarr;
+          </a>
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>

@@ -42,8 +42,8 @@ Research background spans epigenomic and transcriptomic biomarker discovery for 
 
 ## What the template gives us
 
-- **Pages:** Home, People (per-person profiles), Research (grouped by topic), Publications (filter by role/topic + search/sort, with automatic Google Scholar citation-count refresh), Figures (copyright-gated), Lab Life (photo gallery), Contact, 404
-- A **research-topic taxonomy** that auto-groups Research and drives Publications filters
+- **Pages:** Home, People (per-person profiles), Research (grouped by topic), Publications (filter by role/topic + search/sort, with automatic Google Scholar citation-count refresh, plus collaborator logos), News (external press/media coverage), Contact, 404
+- A **research-topic taxonomy** that auto-groups Research and drives Publications filters — edit `RESEARCH_AREAS.md` and ask Claude to sync it, rather than hand-editing the enum
 - Built-in image optimization (Astro `<Image>` → responsive WebP)
 - `npm run enrich:orcid` — fills in ORCID iDs from publication author metadata
 - One-click deploy to GitHub Pages via GitHub Actions
@@ -75,10 +75,11 @@ This template is designed to be filled in by Claude Code — it reads `CLAUDE.md
 
 ```
 src/
-  content/            people · publications · figures · gallery  (content, as Markdown)
+  content/            people · publications · press  (content, as Markdown)
   content.config.ts   collection schemas + the research-topic vocabulary
   data/site.ts        site identity, contact, nav  ← EDIT THIS FIRST
   lib/content.ts       taxonomy labels/groups + query helpers
+  lib/collaborators.ts  collaborator logos referenced from publications
   components/          layout + UI
   pages/                one file per route
 public/                 favicon set, CNAME, robots.txt
@@ -88,16 +89,13 @@ scripts/                citation refresh, ORCID enrichment, link check, CV impor
 
 See [SETUP.md](./SETUP.md) for going live (GitHub Pages, custom domain, citation-refresh secret).
 
-## A note on figure copyright
-
-The `figures` collection is gated: a figure renders only if its frontmatter sets `rightsConfirmed: true` (default `false`, fail-closed). Only mark figures `rightsConfirmed: true` if we have the right to post them (open-access/CC-licensed, or author-reuse rights).
-
 ## Status
 
 - [x] Merge `lab-website-template` into this repo (history preserved from the old Jekyll site)
-- [ ] Local setup (`npm install`, `npm run dev`)
-- [ ] Fill in `src/data/site.ts` (lab identity, contact, nav)
-- [ ] Populate Research, People, Publications pages
-- [ ] Configure custom domain (or keep `emilialimlab.github.io`)
+- [x] Local setup (`npm install`, `npm run dev`)
+- [x] Fill in `src/data/site.ts` (lab identity, contact, nav)
+- [x] Populate Research, People, Publications pages
+- [x] Replace the template's Figures/Lab Life pages with News (press coverage)
+- [x] Configure custom domain (or keep `emilialimlab.github.io`)
 - [ ] Push and deploy to GitHub Pages
 - [ ] Decide whether to backfill content (team bios, publications, images) from the old site — still in git history under this repo's earlier commits

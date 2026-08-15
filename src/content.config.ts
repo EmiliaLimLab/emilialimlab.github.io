@@ -1,4 +1,4 @@
-import { defineCollection, reference } from "astro:content";
+import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "zod";
 
@@ -7,8 +7,6 @@ import { z } from "zod";
 
   Content lives in src/content/<collection>/*.md so a CMS (Sveltia/Decap) can
   layer on later with no schema change.
-  Safety defaults fail closed: figures default to rightsConfirmed:false and are
-  filtered out of every figure query, so a half-filled record can never leak.
 */
 
 // People — bio lives in the markdown body (use render()).
@@ -22,6 +20,7 @@ const people = defineCollection({
         "Faculty",
         "Researchers",
         "Staff",
+        "Bioinformaticians",
         "Students",
         "Affiliates",
         "Alumni",
@@ -67,60 +66,38 @@ const publications = defineCollection({
     // Research tags — topic/population AREAS (drive the Research page) plus
     // cross-cutting facets. One field; a paper may carry several. The vocabulary
     // is mirrored in src/lib/content.ts — keep the two in sync when you edit it.
-    // ⚙️  CUSTOMIZE: replace these example slugs with your field's topics.
     areas: z
       .array(
         z.enum([
-          "topic-one",
-          "topic-two",
-          "topic-three",
-          "methods",
-          "theory",
+          "cancer-origins",
+          "cancer-prevention",
+          "aging-cancer-risk",
           "review",
           "letter",
         ]),
       )
       .default([]),
+    // Collaborating institutions/cores whose logo should show on this paper.
+    // Slugs are keys into COLLABORATORS in src/lib/collaborators.ts.
+    collaborators: z.array(z.string()).default([]),
   }),
 });
 
-// Figures — gated by rightsConfirmed (hard gate, defaults closed).
-const figures = defineCollection({
-  loader: glob({ pattern: "**/*.md", base: "./src/content/figures" }),
+// Press — external media/news coverage about the lab. Each entry links out
+// to the original article; there's no markdown body to render.
+const press = defineCollection({
+  loader: glob({ pattern: "**/*.md", base: "./src/content/press" }),
   schema: ({ image }) =>
     z.object({
-      image: image(),
-      paper: reference("publications"),
-      caption: z.string(),
-      citation: z.string(),
-      doi: z.string().optional(),
-      pmid: z.string().optional(),
-      journal: z.string().optional(),
-      license: z.enum([
-        "CC-BY",
-        "CC-BY-SA",
-        "CC0",
-        "publisher-permission",
-        "unknown",
-      ]),
-      licenseUrl: z.url().optional(),
-      // Hard gate: only true figures are ever rendered.
-      rightsConfirmed: z.boolean().default(false),
-      order: z.number().default(0),
-    }),
-});
-
-// Gallery — lab-life photos.
-const gallery = defineCollection({
-  loader: glob({ pattern: "**/*.md", base: "./src/content/gallery" }),
-  schema: ({ image }) =>
-    z.object({
-      image: image(),
-      caption: z.string(),
+      title: z.string(), // the article's headline
+      outlet: z.string(), // publication/outlet name, e.g. "CBC News"
+      url: z.url(), // link to the original coverage
       date: z.coerce.date(),
-      people: z.array(z.string()).optional(),
+      image: image().optional(), // thumbnail
+      imageAlt: z.string().optional(),
+      excerpt: z.string().optional(), // short description or pull-quote
       featured: z.boolean().default(false),
     }),
 });
 
-export const collections = { people, publications, figures, gallery };
+export const collections = { people, publications, press };

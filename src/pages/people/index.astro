@@ -3,6 +3,7 @@ import BaseLayout from "../../components/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import PersonGroup from "../../components/PersonGroup.astro";
 import { getGroupedPeople } from "../../lib/content";
+import labMeeting from "../../assets/photos/lab-meeting.jpg";
 
 const groups = await getGroupedPeople();
 ---
@@ -15,6 +16,9 @@ const groups = await getGroupedPeople();
     eyebrow="The team"
     title="People"
     lead="The faculty, researchers, and alumni who make up the lab."
+    image={labMeeting}
+    imageAlt="Lab members gathered around a table discussing work"
+    imagePosition="center 2%"
   />
   <div class="container-page py-12">
     {groups.map((g) => <PersonGroup title={g.group} people={g.people} />)}

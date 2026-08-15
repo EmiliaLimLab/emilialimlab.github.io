@@ -16,13 +16,11 @@ export interface SiteConfig {
   shortName: string;
   pi: string;
   institution: string;
+  centre: string;
   university: string;
   url: string;
   description: string;
   email: string;
-  phone: string;
-  address: string[];
-  mapQuery: string;
   social: {
     scholar?: string;
     twitter?: string;
@@ -32,36 +30,28 @@ export interface SiteConfig {
 }
 
 export const site: SiteConfig = {
-  name: "Example Laboratory",
-  shortName: "Example Lab",
-  pi: "Jane Doe, PhD",
-  institution: "Your Institution",
-  university: "Your University",
-  // Your production URL (used for canonical links + sitemap). Set your domain.
-  url: "https://example.com",
+  name: "Environmental Oncogenomics",
+  shortName: "Lim Lab",
+  pi: "Emilia Lim, PhD",
+  institution: "Department of Biochemistry and Molecular Biology",
+  centre: "Edwin SH Leong Centre for Healthy Aging",
+  university: "The University of British Columbia",
+  // Your production URL (used for canonical links + sitemap).
+  url: "https://emilialimlab.github.io",
   description:
-    "One or two sentences describing what your lab studies and why it matters. " +
-    "This shows as the homepage lead and the default meta description.",
-  email: "lab@example.edu",
-  phone: "000-000-0000",
-  address: [
-    "Example Laboratory",
-    "Your Department",
-    "123 University Way",
-    "City, ST 00000",
-  ],
-  mapQuery: "123 University Way, City, ST 00000",
+    "The Lim Lab investigates how environmental pollutants shape the genomics, " +
+    "transcriptomics, and epigenomics of cells to drive age-related disease, using " +
+    "multi-omic approaches in cancer patients and pollution-exposed individuals.",
+  email: "emilia.lim@ubc.ca",
   social: {
-    scholar: "https://scholar.google.com/citations?user=XXXXXXXX&hl=en",
-    // twitter: "https://twitter.com/yourhandle",
-    // github: "https://github.com/yourorg",
+    scholar: "https://scholar.google.com/citations?user=O34k-7EAAAAJ&hl=en",
+    github: "https://github.com/EmiliaLimLab",
   },
   nav: [
     { label: "People", href: "/people" },
     { label: "Research", href: "/research" },
     { label: "Publications", href: "/publications" },
-    { label: "Figures", href: "/figures" },
-    { label: "Lab Life", href: "/lab-life" },
+    { label: "News", href: "/news" },
     { label: "Contact", href: "/contact" },
   ],
 };

@@ -1,0 +1,181 @@
+---
+/*
+  Animated line-art icon for a research-area card: pollutant particulates
+  drifting into the lungs (Origins), a screened population (Prevention), or
+  a damaged DNA rung + clock (Aging). Brand-colored (same tokens as
+  public/favicon.svg). No external assets; animations respect
+  prefers-reduced-motion.
+*/
+interface Props {
+  n: 1 | 2 | 3;
+  class?: string;
+}
+const { n, class: className } = Astro.props;
+---
+
+<div class:list={["research-icon", className]}>
+  {n === 1 && (
+    /* EXPOSURE — pollutant particulates drifting into the lungs */
+    <svg viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <g class="lungs">
+        <path d="M40 10 L40 24" />
+        <path d="M40 24 C40 28 30 28 28 34" />
+        <path d="M40 24 C40 28 50 28 52 34" />
+        <path d="M28 34 C18 36 14 46 16 55 C17 62 24 66 30 62 C34 59 34 51 32 43 C31 39 30 36 28 34 Z" />
+        <path d="M52 34 C62 36 66 46 64 55 C63 62 56 66 50 62 C46 59 46 51 48 43 C49 39 50 36 52 34 Z" />
+      </g>
+      <g class="motes">
+        <circle class="mote" style="--i:0" cx="58" cy="10" r="2.4" />
+        <circle class="mote" style="--i:1" cx="50" cy="15" r="1.9" />
+        <circle class="mote" style="--i:2" cx="63" cy="18" r="1.6" />
+        <circle class="mote" style="--i:3" cx="45" cy="10" r="1.4" />
+      </g>
+    </svg>
+  )}
+  {n === 2 && (
+    /* PREVENTION — a population, and a screening target catching the risk early */
+    <svg viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <g class="people">
+        <circle cx="14" cy="42" r="4.5" />
+        <path d="M8 58 C8 51 10 47 14 47 C18 47 20 51 20 58" />
+        <circle cx="29" cy="35.5" r="5.5" />
+        <path d="M21 58 C21 48.5 24 43.5 29 43.5 C34 43.5 37 48.5 37 58" />
+        <circle cx="46" cy="31" r="6.5" />
+        <path d="M36.5 58 C36.5 46.5 40.5 40 46 40 C51.5 40 55.5 46.5 55.5 58" />
+      </g>
+      <g class="target">
+        <circle class="ring" cx="66" cy="46" r="12" />
+        <circle class="ring" cx="66" cy="46" r="7.5" />
+        <circle class="bull" cx="66" cy="46" r="3" />
+      </g>
+    </svg>
+  )}
+  {n === 3 && (
+    /* AGING — DNA helix (favicon motif) with a damage marker + a clock */
+    <svg viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <g class="helix">
+        <path d="M30 60 C30 52, 50 52, 50 44 C50 36, 30 36, 30 28" />
+        <path d="M50 60 C50 52, 30 52, 30 44 C30 36, 50 36, 50 28" />
+      </g>
+      <g class="rungs">
+        <line x1="30.5" y1="57" x2="49.5" y2="57" />
+        <line x1="33.2" y1="50" x2="46.8" y2="50" />
+        <line class="rung-damaged" x1="33.2" y1="38" x2="46.8" y2="38" />
+        <line x1="30.5" y1="31" x2="49.5" y2="31" />
+      </g>
+      <path class="damage" d="M36 35.5 L44 40.5 M44 35.5 L36 40.5" />
+      <g class="clock">
+        <circle cx="63" cy="20" r="9" />
+        <path class="hand-h" d="M63 20 L63 15" />
+        <path class="hand-m" d="M63 20 L67 22" />
+      </g>
+    </svg>
+  )}
+</div>
+
+<style>
+  .research-icon svg {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* Base line-art (cool / structural). */
+  .research-icon :is(circle, line, path, polyline, rect, polygon) {
+    stroke: var(--color-primary-600);
+    stroke-width: 2.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .research-icon .lungs path,
+  .research-icon .helix path,
+  .research-icon .people path {
+    fill: none;
+  }
+
+  /* Step 1 — accent pollutant particulates. */
+  .research-icon .mote {
+    fill: var(--color-accent-400);
+    stroke: none;
+  }
+
+  /* Step 2 — accent damage marker + clock hands. */
+  .research-icon .rung-damaged {
+    stroke: var(--color-accent-500);
+  }
+  .research-icon .damage {
+    stroke: var(--color-accent-500);
+    stroke-width: 2.2;
+  }
+  .research-icon .clock circle {
+    stroke: var(--color-primary-300);
+  }
+  .research-icon .clock path {
+    stroke: var(--color-accent-500);
+    stroke-width: 1.8;
+  }
+
+  /* Step 3 — accent screening target. */
+  .research-icon .target .ring {
+    stroke: var(--color-primary-300);
+  }
+  .research-icon .target .bull {
+    fill: var(--color-accent-500);
+    stroke: none;
+  }
+
+  /* ---- Animation ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    /* EXPOSURE — particulates drift in and fade, lungs breathe gently. */
+    .research-icon .mote {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: rai-drift 2.6s ease-in infinite;
+      animation-delay: calc(var(--i) * 0.5s);
+    }
+    .research-icon .lungs {
+      transform-box: fill-box;
+      transform-origin: 50% 60%;
+      animation: rai-breathe 3.6s ease-in-out infinite;
+    }
+    /* AGING — the damaged rung pulses, the clock hand ticks. */
+    .research-icon .rung-damaged,
+    .research-icon .damage {
+      animation: rai-blip 2.8s ease-in-out infinite;
+    }
+    .research-icon .hand-m {
+      transform-box: fill-box;
+      transform-origin: 63px 20px;
+      animation: rai-tick 4s steps(4) infinite;
+    }
+    /* PREVENTION — the screening rings ping outward. */
+    .research-icon .ring {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: rai-ping 2.4s ease-out infinite;
+    }
+    .research-icon .ring:nth-of-type(2) {
+      animation-delay: 0.5s;
+    }
+  }
+
+  @keyframes rai-drift {
+    0% { opacity: 0; transform: translate(-11px, 9px) scale(0.6); }
+    25% { opacity: 1; }
+    100% { opacity: 0; transform: translate(0, 0) scale(1); }
+  }
+  @keyframes rai-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
+  }
+  @keyframes rai-blip {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes rai-tick {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes rai-ping {
+    0% { opacity: 0.9; transform: scale(0.85); }
+    100% { opacity: 0; transform: scale(1.15); }
+  }
+</style>

@@ -3,8 +3,6 @@ import BaseLayout from "../components/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import { site } from "../data/site";
 
-const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&output=embed`;
-const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(site.mapQuery)}`;
 const socials = [
   { label: "Google Scholar", href: site.social.scholar },
   { label: "X / Twitter", href: site.social.twitter },
@@ -22,74 +20,66 @@ const socials = [
     lead="We welcome inquiries from prospective trainees, collaborators, and research participants' families."
   />
   <div class="container-page py-12">
-    <div class="grid gap-8 lg:grid-cols-2 lg:items-stretch">
-      <div class="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 class="font-serif text-xl text-slate-900">{site.shortName}</h2>
-        <address class="mt-3 text-slate-600 not-italic">
-          {site.address.map((line) => <p>{line}</p>)}
-        </address>
-
-        <dl class="mt-6 space-y-2 text-sm">
-          <div class="flex gap-2">
-            <dt class="font-medium text-slate-600">Email</dt>
-            <dd>
-              <a
-                href={`mailto:${site.email}`}
-                class="text-primary-700 hover:underline">{site.email}</a
-              >
-            </dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="font-medium text-slate-600">Phone</dt>
-            <dd>
-              <a
-                href={`tel:${site.phone.replace(/[^0-9+]/g, "")}`}
-                class="text-primary-700 hover:underline">{site.phone}</a
-              >
-            </dd>
-          </div>
-        </dl>
-
-        <h3 class="mt-8 text-sm font-semibold tracking-wide text-slate-600 uppercase">
-          Elsewhere
-        </h3>
-        <ul class="mt-2 space-y-1 text-sm">
-          {
-            socials.map((s) => (
-              <li>
-                <a
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-primary-700 hover:underline"
-                >
-                  {s.label}
-                </a>
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-
-      <div class="flex flex-col gap-3">
-        <div class="grow overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-          <iframe
-            title={`Map to ${site.shortName}`}
-            src={mapSrc}
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-            class="h-80 w-full lg:h-full"></iframe>
-        </div>
-        <a
-          href={mapLink}
+    <div class="mx-auto max-w-md rounded-xl border border-primary-200 bg-primary-50/40 p-6">
+      <h2 class="font-serif text-xl text-slate-900">Join the team</h2>
+      <p class="mt-3 text-sm text-slate-600">
+        We are seeking outstanding and motivated graduate students with
+        research interests in genomics, transcriptomics, epigenomics,
+        environmental exposures, and cancer biology. Students would be
+        enrolled in the <a
+          href="https://www.bioinformatics.ubc.ca"
           target="_blank"
           rel="noopener noreferrer"
-          class="group inline-flex items-center gap-1 self-start text-sm font-medium text-primary-700 transition-colors hover:text-accent-600"
-        >
-          Open in Google Maps
-          <span class="transition-transform group-hover:translate-x-0.5" aria-hidden="true">&rarr;</span>
-        </a>
-      </div>
+          class="text-primary-700 hover:underline">Bioinformatics Graduate
+          Program</a
+        > or <a
+          href="https://www.gsat.ubc.ca"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary-700 hover:underline">Genome Science and
+          Technology Graduate Program</a
+        >. Candidates should apply directly to Dr. Emilia Lim at <a
+          href={`mailto:${site.email}`}
+          class="text-primary-700 hover:underline">{site.email}</a
+        > with a cover letter, curriculum vitae, transcript, and contact
+        details for references.
+      </p>
+    </div>
+
+    <div class="mx-auto mt-8 max-w-md rounded-xl border border-slate-200 bg-white p-6">
+      <h2 class="font-serif text-xl text-slate-900">{site.shortName}</h2>
+
+      <dl class="mt-6 space-y-2 text-sm">
+        <div class="flex gap-2">
+          <dt class="font-medium text-slate-600">Email</dt>
+          <dd>
+            <a
+              href={`mailto:${site.email}`}
+              class="text-primary-700 hover:underline">{site.email}</a
+            >
+          </dd>
+        </div>
+      </dl>
+
+      <h3 class="mt-8 text-sm font-semibold tracking-wide text-slate-600 uppercase">
+        Elsewhere
+      </h3>
+      <ul class="mt-2 space-y-1 text-sm">
+        {
+          socials.map((s) => (
+            <li>
+              <a
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-primary-700 hover:underline"
+              >
+                {s.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
     </div>
   </div>
 </BaseLayout>

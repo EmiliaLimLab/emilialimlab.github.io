@@ -2,9 +2,9 @@
 import { getCollection } from "astro:content";
 import { Image } from "astro:assets";
 import type { Publication } from "../lib/content";
-import { authorIsPerson, personKey, menteeMatcher } from "../lib/content";
-// Author markers: ** = mentee (derived from lab membership, see menteeMatcher)
-// and * = co-first/-senior author (from the CV, scripts/data, by DOI/title).
+import { authorIsPerson, personKey } from "../lib/content";
+import { COLLABORATORS, type CollaboratorSlug } from "../lib/collaborators";
+// Author marker: * = co-first/-senior author (from the CV, scripts/data, by DOI/title).
 import cvPubs from "../../scripts/data/cv-publications.json";
 import authorOverrides from "../../scripts/data/author-overrides.json";
 
@@ -38,33 +38,22 @@ const starsFor = (p: Publication): Set<string> =>
   starByTitle.get(norm(p.data.title)) ||
   new Set<string>();
 
-// Directory of lab people, for linking author names + mentee headshots.
+// Directory of lab people, for linking author names.
 const people = await getCollection("people");
 const dir = people.map((p) => ({
   slug: p.id,
   name: p.data.name,
-  headshot: p.data.headshot,
   key: personKey(p.data.name),
 }));
 const findPerson = (author: string) =>
   dir.find((d) => authorIsPerson(author, d.key)) ?? null;
-const isMentee = menteeMatcher(people);
 
-// Headshots for every lab member on a paper (in the people collection, with a
-// headshot), in author order — including the PI on any paper he co-authored.
-const labPeopleFor = (p: Publication) => {
-  const seen = new Set<string>();
-  const out: typeof dir = [];
-  for (const a of p.data.authors) {
-    const d = findPerson(a);
-    if (!d || !d.headshot || seen.has(d.slug)) continue;
-    seen.add(d.slug);
-    out.push(d);
-  }
-  return out;
-};
+// Collaborator logos for a paper, from its `collaborators:` frontmatter slugs.
+const collaboratorsFor = (p: Publication) =>
+  (p.data.collaborators as CollaboratorSlug[])
+    .map((slug) => COLLABORATORS[slug])
+    .filter(Boolean);
 
-const shortName = (name: string) => name.split(",")[0].trim();
 const anyMarks = pubs.some((p) => starsFor(p).size > 0);
 ---
 
@@ -73,32 +62,10 @@ const anyMarks = pubs.some((p) => starsFor(p).size > 0);
     pubs.map((p) => {
       const d = p.data;
       const link = d.doi ? `https://doi.org/${d.doi}` : d.url;
-      const search = `${d.title} ${d.authors.join(" ")} ${d.journal ?? ""}`.toLowerCase();
       const stars = starsFor(p);
-      const menteeLed = isMentee(d.authors[0] ?? "");
-      const featured = menteeLed || (d.piFirstOrSenior && d.year >= 2019);
-      const labPeople = labPeopleFor(p);
-      // Collaboration unless the PI is the SOLE first or SOLE last author —
-      // co-first / co-last (he shares the lead) and middle authorship all count.
-      const piAt = (a: string) => findPerson(a)?.slug === "jane-doe";
-      const piStar = d.authors.some((a) => piAt(a) && stars.has(a));
-      const soleFirst = piAt(d.authors[0] ?? "") && !piStar;
-      const soleLast = piAt(d.authors[d.authors.length - 1] ?? "") && !piStar;
-      const collaboration = !soleFirst && !soleLast;
+      const collaborators = collaboratorsFor(p);
       return (
-        <li
-          class="py-5"
-          data-pub
-          data-year={d.year}
-          data-citations={typeof d.citations === "number" ? d.citations : -1}
-          data-featured={featured}
-          data-mentee={menteeLed}
-          data-pi-senior={d.piFirstOrSenior}
-          data-collaboration={collaboration}
-          data-openaccess={d.openAccess}
-          data-areas={d.areas.join(" ")}
-          data-search={search}
-        >
+        <li class="py-5">
           <p class="font-medium text-slate-900">
             {link ? (
               <a
@@ -118,8 +85,8 @@ const anyMarks = pubs.some((p) => starsFor(p).size > 0);
             <span class:list={["authors", d.authors.length > 14 && "clamped"]}>
               {d.authors.map((a, i) => {
                 const person = findPerson(a);
-                // Only a co-first/-senior (*) marker. Mentees are conveyed by
-                // bolded name links + headshots, so they get no marker.
+                // Only a co-first/-senior (*) marker. Lab members are already
+                // linked via bolded names, so they get no separate marker.
                 const mark = stars.has(a) ? "*" : "";
                 return (
                   <span class="au">
@@ -157,57 +124,42 @@ const anyMarks = pubs.some((p) => starsFor(p).size > 0);
             {d.year}
           </p>
 
-          {labPeople.length > 0 && (
+          {collaborators.length > 0 && (
             <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-              {labPeople.map((m) => (
-                <a
-                  href={`/people/${m.slug}`}
-                  class="group flex items-center gap-2"
-                  title={m.name}
-                >
-                  {m.headshot && (
-                    <Image
-                      src={m.headshot}
-                      alt={m.name}
-                      width={64}
-                      height={64}
-                      class="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200 group-hover:ring-primary-300"
-                    />
-                  )}
-                  <span class="text-xs text-slate-600 group-hover:text-primary-700">
-                    {shortName(m.name)}
+              {collaborators.map((c) => {
+                const logo = (
+                  <Image
+                    src={c.logo}
+                    alt={c.name}
+                    width={64}
+                    height={64}
+                    class="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200 group-hover:ring-primary-300"
+                  />
+                );
+                return c.url ? (
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group flex items-center gap-2"
+                    title={c.name}
+                  >
+                    {logo}
+                    <span class="text-xs text-slate-600 group-hover:text-primary-700">
+                      {c.name}
+                    </span>
+                  </a>
+                ) : (
+                  <span class="flex items-center gap-2" title={c.name}>
+                    {logo}
+                    <span class="text-xs text-slate-600">{c.name}</span>
                   </span>
-                </a>
-              ))}
+                );
+              })}
             </div>
           )}
 
           <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            {typeof d.citations === "number" && (
-              <span class="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
-                Cited by {d.citations}
-              </span>
-            )}
-            {menteeLed && (
-              <span class="rounded-full bg-accent-100 px-2 py-0.5 font-medium text-accent-700">
-                Mentee-led
-              </span>
-            )}
-            {d.piFirstOrSenior && (
-              <span class="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
-                PI first/senior
-              </span>
-            )}
-            {collaboration && (
-              <span class="rounded-full bg-slate-200 px-2 py-0.5 font-medium text-slate-600">
-                Collaboration
-              </span>
-            )}
-            {d.openAccess && (
-              <span class="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700">
-                Open access
-              </span>
-            )}
             {d.doi && (
               <a
                 href={`https://doi.org/${d.doi}`}

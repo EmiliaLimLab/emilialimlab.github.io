@@ -1,0 +1,500 @@
+---
+/*
+  Homepage hero visual — a canvas point-cloud that morphs between an H&E lung
+  tissue slide and a single-cell t-SNE embedding, illustrating the "How Do
+  Cancers Begin?" research area (H&E slides + spatial 'omics + single-cell
+  sequencing of pollution-exposed lung tissue). There is no drawn/filled
+  lung anywhere — the tissue-side "lung" is entirely an effect of ~5,900 dot
+  positions sampled inside a lobe silhouette traced from
+  images/icons/lung_icon_image.png (thresholded, flood-filled, boundary
+  traced, simplified to 23 anchor points). Ten cell types, each rejection-
+  sampled inside that silhouette on the tissue side and Gaussian-scattered
+  around its own cluster center on the t-SNE side; each frame linearly
+  interpolates every dot between its two coordinates. Pauses off-screen and
+  on tab-hide; respects prefers-reduced-motion (static tissue frame, no
+  animation) same as ResearchAreaIcon.astro.
+*/
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<div class:list={["cell-morph-hero", className]}>
+  <div class="canvas-wrap">
+    <canvas
+      id="cellMorph"
+      role="img"
+      aria-label="Animated illustration morphing between an H&E-stained lung tissue slide and a single-cell t-SNE embedding"
+    ></canvas>
+    <div class="caption" id="captionTissue">H&amp;E-stained lung tissue — anthracotic macrophages scattered through the parenchyma</div>
+    <div class="caption" id="captionEmbed" style="opacity:0">Single-cell transcriptomes — t-SNE embedding, ten cell types</div>
+  </div>
+  <p class="note">Illustrative, synthetic cell positions — not real patient data.</p>
+</div>
+
+<style>
+  .cell-morph-hero {
+    width: 100%;
+    max-width: 30rem;
+  }
+  .canvas-wrap {
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: transparent;
+  }
+  .caption {
+    position: absolute;
+    left: 0.9rem;
+    right: 0.9rem;
+    bottom: 0.8rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: #000;
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.9),
+      0 0 2px rgba(255, 255, 255, 0.9),
+      0 1px 1px rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+  }
+  .note {
+    margin: 0.6rem 0 0;
+    font-size: 0.72rem;
+    color: var(--color-primary-600);
+    opacity: 0.7;
+  }
+</style>
+
+<script>
+  (() => {
+    const canvas = document.getElementById('cellMorph') as HTMLCanvasElement | null;
+    const captionTissue = document.getElementById('captionTissue');
+    const captionEmbed = document.getElementById('captionEmbed');
+    if (!canvas || !captionTissue || !captionEmbed) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ---- seeded PRNG (mulberry32) so the layout is stable across reloads ----
+    function mulberry32(seed: number) {
+      return function () {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const rand = mulberry32(20240513);
+    const approxGaussian = (spread: number) => {
+      let s = 0;
+      for (let i = 0; i < 4; i++) s += rand() - 0.5;
+      return s * 0.5 * spread;
+    };
+
+    // ---- tissue silhouette: traced directly from
+    // images/icons/lung_icon_image.png (thresholded to binary, flood-filled
+    // from the border to isolate the enclosed interior, morphologically
+    // closed to bridge the internal bronchial-tree strokes, Moore-neighbor
+    // boundary traced, simplified via Douglas-Peucker to 23 points). Scale
+    // is uniform (image px * 80/550) so proportions match the source. This
+    // is the right lobe; the left had a one-pixel gap in the source art, so
+    // it's the same lobe mirrored (the icon is bilaterally symmetric).
+    // viewBox is 80 wide x 72 tall, y down. ----
+    const BG_W = 960,
+      BG_H = 720;
+    const VB_W = 80,
+      VB_H = 72;
+    const mirrorX = ([x, y]: number[]) => [VB_W - x, y];
+
+    const LEFT_ANCHORS = [
+      [27.2, 16.44], [24.29, 17.31], [21.96, 19.2], [16.44, 25.89], [10.47, 36.22],
+      [7.13, 44.8], [5.53, 53.09], [5.96, 58.76], [8.29, 63.27], [11.64, 65.6],
+      [15.13, 65.6], [22.25, 62.98], [27.35, 61.96], [28.95, 60.95], [29.53, 59.64],
+      [30.69, 51.2], [30.69, 29.67], [28.95, 29.53], [28.95, 27.2], [30.4, 26.18],
+      [30.25, 23.56], [28.95, 18.33], [27.2, 16.44],
+    ];
+
+    function catmullRomSegs(anchors: number[][]) {
+      const n = anchors.length,
+        segs = [];
+      for (let i = 0; i < n; i++) {
+        const p0 = anchors[(i - 1 + n) % n],
+          p1 = anchors[i],
+          p2 = anchors[(i + 1) % n],
+          p3 = anchors[(i + 2) % n];
+        const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+        const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+        segs.push({ p0: p1, c1, c2, p1: p2 });
+      }
+      return segs;
+    }
+    function cubicPoint(p0: number[], c1: number[], c2: number[], p1: number[], t: number) {
+      const mt = 1 - t;
+      return [
+        mt * mt * mt * p0[0] + 3 * mt * mt * t * c1[0] + 3 * mt * t * t * c2[0] + t * t * t * p1[0],
+        mt * mt * mt * p0[1] + 3 * mt * mt * t * c1[1] + 3 * mt * t * t * c2[1] + t * t * t * p1[1],
+      ];
+    }
+    function flattenSegs(segs: ReturnType<typeof catmullRomSegs>, samplesPerSeg = 20) {
+      const poly = [];
+      for (const s of segs) for (let i = 0; i < samplesPerSeg; i++) poly.push(cubicPoint(s.p0, s.c1, s.c2, s.p1, i / samplesPerSeg));
+      return poly;
+    }
+    function pointInPolygon(poly: number[][], x: number, y: number) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i],
+          [xj, yj] = poly[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    }
+    function polyBounds(poly: number[][]) {
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+      for (const [x, y] of poly) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+      return { minX, maxX, minY, maxY };
+    }
+
+    // Fit the (non-square) viewBox into the canvas uniformly, no stretching.
+    const scale = 0.9 * Math.min(BG_W / VB_W, BG_H / VB_H);
+    const offsetX = (BG_W - VB_W * scale) / 2;
+    const offsetY = (BG_H - VB_H * scale) / 2;
+    const vbToPixel = (vx: number, vy: number) => ({ x: offsetX + vx * scale, y: offsetY + vy * scale });
+    const vbNorm = (vx: number, vy: number) => {
+      const p = vbToPixel(vx, vy);
+      return { x: p.x / BG_W, y: p.y / BG_H };
+    };
+
+    const leftSegs = catmullRomSegs(LEFT_ANCHORS);
+    const rightSegs = leftSegs.map((s) => ({ p0: mirrorX(s.p0), c1: mirrorX(s.c1), c2: mirrorX(s.c2), p1: mirrorX(s.p1) }));
+    const leftPoly = flattenSegs(leftSegs);
+    const rightPoly = leftPoly.map(mirrorX);
+    const leftAttach = LEFT_ANCHORS[0]; // E — where the bronchus meets the lung
+    const lobes = [
+      { poly: leftPoly, bronchusPt: leftAttach, bbox: polyBounds(leftPoly) },
+      { poly: rightPoly, bronchusPt: mirrorX(leftAttach), bbox: polyBounds(rightPoly) },
+    ];
+
+    // A small branching bronchial tree inside each lobe (mirrored from one
+    // seeded build so both sides match).
+    const branchRand = mulberry32(31);
+    function buildBranches(origin: number[], dir: number, len: number, width: number, depth: number) {
+      const segs: { p0: number[]; c: number[]; p1: number[]; width: number }[] = [];
+      (function rec(o: number[], d: number, l: number, w: number, dep: number) {
+        if (dep <= 0 || l < 2.5) return;
+        const bend = (branchRand() - 0.5) * 0.6;
+        const mid = d + bend;
+        const end = [o[0] + Math.cos(d) * l, o[1] + Math.sin(d) * l];
+        const ctrl = [o[0] + Math.cos(mid) * l * 0.55, o[1] + Math.sin(mid) * l * 0.55];
+        segs.push({ p0: o, c: ctrl, p1: end, width: w });
+        const spread = 0.5 + branchRand() * 0.25;
+        rec(end, d - spread, l * 0.62, w * 0.62, dep - 1);
+        rec(end, d + spread, l * 0.62, w * 0.62, dep - 1);
+      })(origin, dir, len, width, depth);
+      return segs;
+    }
+    const leftCentroid = LEFT_ANCHORS.reduce((a, p) => [a[0] + p[0] / LEFT_ANCHORS.length, a[1] + p[1] / LEFT_ANCHORS.length], [0, 0]);
+    const leftBranchDir = Math.atan2(leftCentroid[1] - leftAttach[1], leftCentroid[0] - leftAttach[0]);
+    const leftBranches = buildBranches(leftAttach, leftBranchDir, 20, 1.6, 3);
+    const rightBranches = leftBranches.map((s) => ({ p0: mirrorX(s.p0), c: mirrorX(s.c), p1: mirrorX(s.p1), width: s.width }));
+
+    // ---- ten cell types spanning epithelial / stromal-vascular / myeloid /
+    // lymphoid compartments; colors are Lab-distance-checked so all ten stay
+    // distinguishable as small dots. No drawn/filled lung underneath — the
+    // dots ARE the silhouette. ----
+    const TYPES = [
+      { name: 'alveolar-epithelial', weight: 0.22, color: '#b8496b' },
+      { name: 'airway-epithelial', weight: 0.08, color: '#d9829a' },
+      { name: 'fibroblast', weight: 0.14, color: '#c2a24f' },
+      { name: 'endothelial', weight: 0.13, color: '#3f9d92' },
+      { name: 'alveolar-macrophage', weight: 0.1, color: '#7a5738' },
+      { name: 'anthracotic-macrophage', weight: 0.08, color: '#241b14' },
+      { name: 't-cell', weight: 0.11, color: '#464a95' },
+      { name: 'b-plasma-cell', weight: 0.05, color: '#8a3e91' },
+      { name: 'monocyte-neutrophil', weight: 0.06, color: '#5c81a3' },
+      { name: 'mast-cell', weight: 0.03, color: '#c15b3f' },
+    ];
+    const EMBED_CLUSTERS: Record<string, { cx: number; cy: number; spread: number }> = {
+      'alveolar-epithelial': { cx: 0.2, cy: 0.22, spread: 0.095 },
+      'airway-epithelial': { cx: 0.34, cy: 0.13, spread: 0.055 },
+      fibroblast: { cx: 0.68, cy: 0.18, spread: 0.085 },
+      endothelial: { cx: 0.83, cy: 0.28, spread: 0.06 },
+      'alveolar-macrophage': { cx: 0.66, cy: 0.74, spread: 0.07 },
+      'anthracotic-macrophage': { cx: 0.88, cy: 0.62, spread: 0.032 },
+      't-cell': { cx: 0.24, cy: 0.76, spread: 0.075 },
+      'b-plasma-cell': { cx: 0.13, cy: 0.6, spread: 0.045 },
+      'monocyte-neutrophil': { cx: 0.53, cy: 0.82, spread: 0.05 },
+      'mast-cell': { cx: 0.4, cy: 0.88, spread: 0.028 },
+    };
+
+    const N = 5200;
+    const points: { tx: number; ty: number; ux: number; uy: number; color: string }[] = [];
+    function pickType() {
+      let r = rand();
+      for (const t of TYPES) {
+        if (r < t.weight) return t;
+        r -= t.weight;
+      }
+      return TYPES[0];
+    }
+    function sampleTissuePos(_typeName: string) {
+      // every type, including anthracotic macrophages, is rejection-sampled
+      // anywhere inside a lobe — density alone has to trace the silhouette,
+      // and the pigment cells are scattered through the tissue like real
+      // anthracotic macrophages spreading along lymphatic routes.
+      const lobe = lobes[rand() < 0.5 ? 0 : 1];
+      const { minX, maxX, minY, maxY } = lobe.bbox;
+      for (let tries = 0; tries < 40; tries++) {
+        const x = minX + rand() * (maxX - minX);
+        const y = minY + rand() * (maxY - minY);
+        if (pointInPolygon(lobe.poly, x, y)) return vbNorm(x, y);
+      }
+      return vbNorm(lobe.bronchusPt[0], lobe.bronchusPt[1]);
+    }
+    function sampleEmbedPos(typeName: string) {
+      const c = EMBED_CLUSTERS[typeName];
+      return {
+        x: Math.min(0.96, Math.max(0.04, c.cx + approxGaussian(c.spread))),
+        y: Math.min(0.96, Math.max(0.04, c.cy + approxGaussian(c.spread))),
+      };
+    }
+    for (let i = 0; i < N; i++) {
+      const t = pickType();
+      const tp = sampleTissuePos(t.name);
+      const ep = sampleEmbedPos(t.name);
+      points.push({ tx: tp.x, ty: tp.y, ux: ep.x, uy: ep.y, color: t.color });
+    }
+
+    // Airway epithelium: dots traced along the trachea, the bifurcation, and
+    // the branching bronchial tree, so those shapes read from dot density
+    // too, not as drawn lines.
+    function quadPoint(p0: number[], c: number[], p1: number[], t: number) {
+      const mt = 1 - t;
+      return [mt * mt * p0[0] + 2 * mt * t * c[0] + t * t * p1[0], mt * mt * p0[1] + 2 * mt * t * c[1] + t * t * p1[1]];
+    }
+    function quadTangent(p0: number[], c: number[], p1: number[], t: number) {
+      const mt = 1 - t;
+      return [2 * mt * (c[0] - p0[0]) + 2 * t * (p1[0] - c[0]), 2 * mt * (c[1] - p0[1]) + 2 * t * (p1[1] - c[1])];
+    }
+    const trachBot = [40, 14];
+    const bifurcationCurves = lobes.map((lobe) => ({
+      p0: trachBot,
+      c: [(trachBot[0] + lobe.bronchusPt[0]) / 2, trachBot[1] + (lobe.bronchusPt[1] - trachBot[1]) * 0.15],
+      p1: lobe.bronchusPt,
+    }));
+    const airwayColor = TYPES.find((t) => t.name === 'airway-epithelial')!.color;
+    function pushAirwayPoint(vx: number, vy: number) {
+      const tp = vbNorm(vx, vy);
+      const ep = sampleEmbedPos('airway-epithelial');
+      points.push({ tx: tp.x, ty: tp.y, ux: ep.x, uy: ep.y, color: airwayColor });
+    }
+    const AIRWAY_N = 700;
+    for (let i = 0; i < AIRWAY_N; i++) {
+      const r = rand();
+      if (r < 0.12) {
+        pushAirwayPoint(37 + rand() * 6, 2 + rand() * 12);
+      } else if (r < 0.28) {
+        const bc = bifurcationCurves[rand() < 0.5 ? 0 : 1];
+        const t = rand(),
+          [px, py] = quadPoint(bc.p0, bc.c, bc.p1, t);
+        const [tx, ty] = quadTangent(bc.p0, bc.c, bc.p1, t);
+        const len = Math.hypot(tx, ty) || 1;
+        const jitter = (rand() - 0.5) * 2.2;
+        pushAirwayPoint(px - (ty / len) * jitter, py + (tx / len) * jitter);
+      } else {
+        const branches = rand() < 0.5 ? leftBranches : rightBranches;
+        const s = branches[Math.floor(rand() * branches.length)];
+        const t = rand(),
+          [px, py] = quadPoint(s.p0, s.c, s.p1, t);
+        const [tx, ty] = quadTangent(s.p0, s.c, s.p1, t);
+        const len = Math.hypot(tx, ty) || 1;
+        const jitter = (rand() - 0.5) * s.width;
+        pushAirwayPoint(px - (ty / len) * jitter, py + (tx / len) * jitter);
+      }
+    }
+
+    // ---- prerendered backdrop (drawn once, reused every frame) ----
+    // No fill on either backdrop — the canvas itself has no CSS background,
+    // so the page's actual gradient shows straight through and the dot
+    // cloud blends into the hero instead of sitting in a colored box.
+    const embedBg = document.createElement('canvas');
+    embedBg.width = BG_W;
+    embedBg.height = BG_H;
+    (function drawEmbedBg() {
+      const c = embedBg.getContext('2d')!;
+      c.strokeStyle = '#e1e8f2';
+      c.lineWidth = 1;
+      for (let i = 1; i < 8; i++) {
+        const x = (i / 8) * BG_W;
+        c.beginPath();
+        c.moveTo(x, 0);
+        c.lineTo(x, BG_H);
+        c.stroke();
+        const y = (i / 8) * BG_H;
+        c.beginPath();
+        c.moveTo(0, y);
+        c.lineTo(BG_W, y);
+        c.stroke();
+      }
+      c.fillStyle = '#94a3b8';
+      c.font = '13px ui-sans-serif, system-ui, sans-serif';
+      c.fillText('t-SNE 1', BG_W - 62, BG_H - 12);
+      c.save();
+      c.translate(14, 62);
+      c.rotate(-Math.PI / 2);
+      c.fillText('t-SNE 2', 0, 0);
+      c.restore();
+    })();
+
+    // ---- animation state machine ----
+    const CYCLE = reduceMotion
+      ? []
+      : [
+          { kind: 'dwell', at: 0, dur: 2600 },
+          { kind: 'move', from: 0, to: 1, dur: 1700 },
+          { kind: 'dwell', at: 1, dur: 2600 },
+          { kind: 'move', from: 1, to: 0, dur: 1700 },
+        ];
+    let stateIdx = 0,
+      stateStart = 0,
+      running = false,
+      rafId = 0;
+
+    function easeInOut(x: number) {
+      return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    }
+
+    // A few drifting particulates above the trachea — same motif as the
+    // .mote animation in ResearchAreaIcon.astro's exposure icon.
+    const MOTES = [46, 34, 52, 40].map((vx, i) => {
+      const p = vbNorm(vx, 6 + (i % 2) * 3);
+      return { tx: p.x, ty: p.y, r: 1.1 + (i % 3) * 0.35, phase: i * 1.7 };
+    });
+    function drawMotes(W: number, H: number, t: number, now: number) {
+      ctx!.fillStyle = '#7fa3d9';
+      for (const m of MOTES) {
+        const drift = Math.sin(now / 1600 + m.phase) * 0.006;
+        const x = (m.tx + drift) * W,
+          y = m.ty * H;
+        ctx!.globalAlpha = 0.55 * (1 - t);
+        ctx!.beginPath();
+        ctx!.arc(x, y, m.r * dpr, 0, Math.PI * 2);
+        ctx!.fill();
+      }
+      ctx!.globalAlpha = 1;
+    }
+
+    let dpr = 1;
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const rect = canvas!.getBoundingClientRect();
+      canvas!.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas!.height = Math.max(1, Math.floor(rect.height * dpr));
+    }
+
+    function drawFrame(t: number) {
+      const W = canvas!.width,
+        H = canvas!.height;
+      ctx!.clearRect(0, 0, W, H);
+      ctx!.globalAlpha = t;
+      ctx!.drawImage(embedBg, 0, 0, W, H);
+      ctx!.globalAlpha = 1;
+      drawMotes(W, H, t, performance.now());
+
+      const rTissue = 1.05 * dpr,
+        rEmbed = 0.95 * dpr;
+      const r = rTissue + (rEmbed - rTissue) * t;
+      const buckets: Record<string, typeof points> = {};
+      for (const p of points) (buckets[p.color] ||= []).push(p);
+      for (const color in buckets) {
+        ctx!.fillStyle = color;
+        ctx!.globalAlpha = 0.85;
+        ctx!.beginPath();
+        for (const p of buckets[color]) {
+          const x = (p.tx * (1 - t) + p.ux * t) * W;
+          const y = (p.ty * (1 - t) + p.uy * t) * H;
+          ctx!.moveTo(x + r, y);
+          ctx!.arc(x, y, r, 0, Math.PI * 2);
+        }
+        ctx!.fill();
+      }
+      ctx!.globalAlpha = 1;
+
+      captionTissue!.style.opacity = String(1 - t);
+      captionEmbed!.style.opacity = String(t);
+    }
+
+    function frame(now: number) {
+      let s = CYCLE[stateIdx];
+      let elapsed = now - stateStart;
+      if (elapsed >= s.dur) {
+        stateIdx = (stateIdx + 1) % CYCLE.length;
+        stateStart = now;
+        elapsed = 0;
+        s = CYCLE[stateIdx];
+      }
+      const t = s.kind === 'dwell' ? s.at! : s.from! + (s.to! - s.from!) * easeInOut(elapsed / s.dur);
+      drawFrame(t);
+      if (running) rafId = requestAnimationFrame(frame);
+    }
+
+    function start() {
+      if (running || reduceMotion) return;
+      running = true;
+      stateStart = performance.now();
+      rafId = requestAnimationFrame(frame);
+    }
+    function stop() {
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+    }
+
+    resize();
+    drawFrame(0);
+    if (!reduceMotion) start();
+
+    if (!reduceMotion) {
+      let inView = true;
+      function syncRunning() {
+        if (inView && !document.hidden) start();
+        else stop();
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) inView = e.isIntersecting;
+          syncRunning();
+        },
+        { threshold: 0.01 }
+      );
+      io.observe(canvas);
+      document.addEventListener('visibilitychange', syncRunning);
+    }
+
+    // Resizing a canvas clears its backing store, so redraw a static frame
+    // regardless of motion mode — the rAF loop (if running) takes over
+    // again on its next tick, but a paused/reduced-motion canvas would
+    // otherwise stay blank until the next state change.
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        resize();
+        drawFrame(0);
+      }, 120);
+    });
+  })();
+</script>

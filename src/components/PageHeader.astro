@@ -1,25 +1,53 @@
 ---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
 interface Props {
   eyebrow?: string;
   title: string;
   lead?: string;
+  image?: ImageMetadata;
+  imageAlt?: string;
+  imagePosition?: string;
 }
-const { eyebrow, title, lead } = Astro.props;
+const { eyebrow, title, lead, image, imageAlt, imagePosition = "center" } = Astro.props;
 ---
 
-<header class="bg-gradient-to-b from-primary-50 to-white">
-  <div class="container-page py-14 sm:py-20">
-    {
-      eyebrow && (
-        <p class="text-sm font-semibold tracking-wide text-accent-600 uppercase">
-          {eyebrow}
-        </p>
-      )
-    }
-    <div
-      class:list={["h-0.5 w-12 rounded-full bg-accent-500", eyebrow ? "mt-4" : ""]}
-    />
-    <h1 class="mt-4 text-4xl font-semibold text-slate-900 sm:text-5xl">{title}</h1>
-    {lead && <p class="mt-5 max-w-2xl text-lg text-slate-600">{lead}</p>}
-  </div>
-</header>
+{
+  image ? (
+    <header class="relative isolate overflow-hidden bg-slate-900">
+      <Image
+        src={image}
+        alt={imageAlt ?? ""}
+        widths={[640, 1024, 1600, 2400]}
+        sizes="100vw"
+        class="absolute inset-0 -z-10 h-full w-full object-cover"
+        style={{ objectPosition: imagePosition }}
+      />
+      <div class="absolute inset-0 -z-10 bg-gradient-to-t from-slate-900/90 via-slate-900/55 to-slate-900/30" />
+      <div class="container-page py-20 sm:py-28">
+        {eyebrow && (
+          <p class="text-sm font-semibold tracking-wide text-accent-300 uppercase">
+            {eyebrow}
+          </p>
+        )}
+        <div class:list={["h-0.5 w-12 rounded-full bg-accent-400", eyebrow ? "mt-4" : ""]} />
+        <h1 class="mt-4 text-4xl font-semibold text-white sm:text-5xl">{title}</h1>
+        {lead && <p class="mt-5 max-w-2xl text-lg text-slate-200">{lead}</p>}
+      </div>
+    </header>
+  ) : (
+    <header class="bg-gradient-to-b from-primary-50 to-white">
+      <div class="container-page py-14 sm:py-20">
+        {eyebrow && (
+          <p class="text-sm font-semibold tracking-wide text-accent-600 uppercase">
+            {eyebrow}
+          </p>
+        )}
+        <div class:list={["h-0.5 w-12 rounded-full bg-accent-500", eyebrow ? "mt-4" : ""]} />
+        <h1 class="mt-4 text-4xl font-semibold text-slate-900 sm:text-5xl">{title}</h1>
+        {lead && <p class="mt-5 max-w-2xl text-lg text-slate-600">{lead}</p>}
+      </div>
+    </header>
+  )
+}

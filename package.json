@@ -26,5 +26,10 @@
     "@astrojs/check": "^0.9.9",
     "cheerio": "^1.2.0",
     "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "fsevents@2.3.3": true,
+    "sharp@0.34.5": true
   }
 }

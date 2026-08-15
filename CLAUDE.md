@@ -118,10 +118,19 @@ the right to (open-access/CC, or your own author-reuse rights).
 > ___, license CC-BY (or publisher-permission). Set rightsConfirmed only if I confirm I have the
 > rights.”
 
-## Step 6 — Lab Life photos
+## Step 6 — News
 
-> **Prompt:** “Add my photos in `src/assets/gallery/` as gallery entries with captions and dates.”
-Photos get a click-to-zoom lightbox automatically.
+Each item is a Markdown file in `src/content/press/` — `title` (the article's headline),
+`outlet`, `url` (link to the original coverage), `date`, and optionally `image`/`imageAlt`
+(thumbnail, drop in `src/assets/press/`) and `excerpt`. This is a gallery of links to external
+news/press coverage about the lab, not lab-authored announcements — there's no Markdown body.
+
+> **Prompt:** “Add a news item: outlet ___, headline ___, url ___, date ___. [If there's a
+> thumbnail: image at `src/assets/press/___`, excerpt ___.]”
+
+The homepage teases the single most recent item; cards on `/news` link out to the article.
+Note: this diverges from the upstream template's default "Lab News" page (an internal
+announcements feed) — see [NEWS_BULK.md](./NEWS_BULK.md) for bulk-adding coverage.
 
 ## Step 7 — Logo & hero (make it yours)
 
